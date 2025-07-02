@@ -1,0 +1,272 @@
+---
+title: "Life Expectancy Analysis"
+output: html_document
+date: "2025-06-29"
+---
+
+```{r setup, include=FALSE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)   
+
+```
+
+```{r}
+library(dplyr)       
+library(tidyr)    
+library(readr)       
+library(ggplot2)    
+
+```
+
+## Life Expectancy
+
+
+```{r}
+life_expectancy <- read.csv("C:/Users/autis/OneDrive/Documents/Life Expectancy/Data/life_expectancy.csv") #load the data set
+```
+
+Data was sourced from [Kaggle: Countries Life Expectancy Dataset](https://www.kaggle.com/datasets/amirhosseinmirzaie/countries-life-expectancy?resource=download).
+
+```{r}
+colSums(is.na(life_expectancy))  # Check for missing values 
+```
+
+```{r}
+life_expectancy <- life_expectancy |>
+  drop_na() #Remove missing Values
+```
+
+```{r}
+#Overall Summary Statistics for every column
+summary(life_expectancy)
+```
+
+```{r}
+life_expectancy |> #Creating a visual of life expectancy
+  ggplot(aes(x = Life.expectancy)) +
+  geom_histogram(binwidth = 2, fill = "lightsteelblue2", color = "black") +
+  labs(
+    title = "Distribution of Life Expectancy",
+    x = "Life Expectancy",
+    y = "Count"
+  ) +
+  theme_classic()
+
+```
+
+The overall distribution of life expectancy is left skewed.
+
+**What is the average life expectancy globally?**
+
+```{r}
+summary(life_expectancy$Life.expectancy)
+```
+
+The average global life expectancy is 69.35. The data visualization of life expectancy showed a left skew, making the median the better choice for measure of central tendency.
+
+**Creating a visual to compare life expectancy with developing countries vs developing countries.**
+
+```{r}
+life_expectancy |>
+  ggplot(aes(x = Status, y = Life.expectancy, fill = Status)) +
+  geom_boxplot() +
+  labs(
+    title = "Life Expectancy by Country Status",
+    x = "Status",
+    y = "Life Expectancy"
+  ) +
+  theme_classic() +
+  theme(legend.position = "none")
+
+```
+
+**Does a higher GDP predict higher life expectancy?**
+
+```{r}
+life_expectancy |>
+  ggplot(aes(x = GDP, y = Life.expectancy)) +
+  geom_point(alpha = 0.5, color = "blue") +
+  geom_smooth(method = "lm", se = TRUE, color = "red") +
+  labs(
+    title = "GDP vs. Life Expectancy",
+    x = "GDP",
+    y = "Life Expectancy"
+  ) +
+  theme_classic()
+```
+
+The linearity was not very promising as it had a heavy skew. Attempting a log transformation to possibly linearize.
+
+```{r}
+ggplot(life_expectancy, aes(x = log(GDP), y = Life.expectancy)) +
+  geom_point(color = "blue", alpha = 0.5) +
+  geom_smooth(method = "lm", color = "red", se = TRUE) +
+  labs(title = "Log(GDP) vs. Life Expectancy", x = "Log(GDP)", y = "Life Expectancy") +
+  theme_classic()
+
+```
+
+After conducting a log transformation, the data seems to have a more linear appearance despite the scatter, possibly a positive correlation between high GDP and life expectancy.
+
+```{r}
+life_expectancy$log_gdp <- log(life_expectancy$GDP)
+model_log <- lm(Life.expectancy ~ log_gdp, data = life_expectancy)
+summary(model_log)
+
+```
+
+A small P-value shows a statistically significant relationship. An R-Squared Value of 0.2747 explains 27.47% of the variation in life expectancy. A higher GDP seems to indicate a higher life expectancy.
+
+Check to see if it is also affected by the status of the country.
+
+```{r}
+ggplot(life_expectancy, aes(x = log(GDP), y = Life.expectancy, color = Status)) + #Adding status of developing vs developed
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 1) +
+  facet_wrap(~ Status) + #Want the graphs side by side
+  theme_classic() +
+  labs(
+    title = "Log(GDP) vs Life Expectancy",
+    x = "Log(GDP)",
+    y = "Life Expectancy",
+    color = "Status"
+  )
+```
+
+By doing a comparison between both developing and developed countries the more developed a country is the higher the life expectancy is guaranteed. However there is a much larger disparity with developing counties as the life expectancy ranges from low, to high.
+
+```{r}
+GDP_LE_Dev <- lm(Life.expectancy ~ log(GDP), data = filter(life_expectancy, Status == "Developed"))
+summary(GDP_LE_Dev)
+
+GDP_LE_Devg <- lm(Life.expectancy ~ log(GDP), data = filter(life_expectancy, Status == "Developing"))
+summary(GDP_LE_Devg)
+
+```
+
+GDP is a significant predictor when it comes to life expectancy and is further confirmed when seperating whether or not the country is developed or developing. Both yield significant statistical results. However their R-squared statistics are closer to 0 than to one which does not explain much of the variation. Therefore life expectancy is determined by a multitude of factors and is not just determined by GDP. Further variables need to be tested.
+
+**How much do external factors impact life expectancy *Alcohol, schooling, BMI, HIV***
+
+***BMI***
+
+```{r}
+ggplot(life_expectancy, aes(x = BMI, y = Life.expectancy)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 1) +
+  theme_classic() +
+  labs(
+    title = "BMI vs Life Expectancy",
+    x = "BMI",
+    y = "Life Expectancy",
+  )
+
+```
+
+```{r}
+BMI_LE <- lm(Life.expectancy ~ BMI, data = life_expectancy)
+summary(BMI_LE)
+```
+
+p-value: \< 2.2e-16 Adjusted R-squared: 0.299
+
+***Alcohol***
+
+```{r}
+ggplot(life_expectancy, aes(x = Alcohol, y = Life.expectancy)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 1) +
+  theme_classic() +
+  labs(
+    title = "Alcohol Consumption vs Life Expectancy",
+    x = "Alcohol Consumption",
+    y = "Life Expectancy",
+  )
+
+```
+
+```{r}
+Alcohol_LE <- lm(Life.expectancy ~ Alcohol, data = life_expectancy)
+summary(Alcohol_LE)
+```
+
+p-value: \< 2.2e-16 Adjusted R-squared: 0.1571
+
+***Schooling***
+
+```{r}
+ggplot(life_expectancy, aes(x = Schooling, y = Life.expectancy)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 1) +
+  theme_classic() +
+  labs(
+    title = "Schooling vs Life Expectancy",
+    x = "Schooling",
+    y = "Life Expectancy",
+  )
+```
+
+```{r}
+Schooling_LE <- lm(Life.expectancy ~ Schooling, data = life_expectancy)
+summary(Schooling_LE)
+```
+
+p-value: < 2.2e-16 Adjusted R-squared: 0.5255 With real world data, an Adjusted R-Squared value of 0.5255 indicates that schooling plays a significant factor in life expectancy. A small p-value also indicates statistical significance.
+
+***HIV/AIDS***
+
+```{r}
+ggplot(life_expectancy, aes(x = HIV.AIDS, y = Life.expectancy)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 1) +
+  theme_classic() +
+  labs(
+    title = "HIV/AIDS,
+    vs Life Expectancy",
+    x = "HIV/AIDS",
+    y = "Life Expectancy",
+  )
+ggplot(life_expectancy, aes(x = HIV.AIDS, y = Life.expectancy)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 1) +
+  theme_classic() +
+  labs(
+    title = "HIV/AIDS,
+    vs Life Expectancy",
+    x = "HIV/AIDS",
+    y = "Life Expectancy",
+  )
+```
+
+```{r}
+HIV_LE <- lm(Life.expectancy ~ HIV.AIDS, data = life_expectancy)
+summary(HIV_LE)
+```
+
+p-value: \< 2.2e-16 Adjusted R-squared: 0.3592
+
+*The HIV/AIDS variable showed right skewness, so I applied a log transformation to better linearize the model.*
+
+```{r}
+ggplot(life_expectancy, aes(x = log(HIV.AIDS), y = Life.expectancy)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 1) +
+  theme_classic() +
+  labs(
+    title = "HIV/AIDS,
+    vs Life Expectancy",
+    x = "HIV/AIDS",
+    y = "Life Expectancy",
+  )
+```
+
+```{r}
+HIV_LE <- lm(Life.expectancy ~ log(HIV.AIDS), data = life_expectancy)
+summary(HIV_LE)
+```
+
+After a log transformation was applied the Adjusted R-Squared value increased to 0.6285 which indicates that HIV/AIDS is a strong predictor in a large real world data set as it explains 62.85% variation. A p-value of < 2.2e-16 confirms that HIV/AIDS is statistically significant showing that it is a good indicator in predicting life expectancy.
+
+## Conclusion
+
+In conclusion, GDP is a good starting point when it comes to life expectancy however there are other factors that seem to be stronger predictors in determining life expectancy. Developed countries seem to have a much higher life expectancy overall. Predictors such as Schooling, HIV/AIDS seem to be the strongest indicators when it comes to life expectancy. For future analysis focusing only on developing countries could yield better results as developed countries seem to overall have higher life expectancy due to access to schooling and medical care. 
